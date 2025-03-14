@@ -1,7 +1,10 @@
 package chapter07
 
 import (
+	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 type Item struct {
@@ -26,10 +29,22 @@ func (c *Casher) itemNames() []string {
 }
 
 func (c *Casher) Purchase(item *Item) {
-	// TODO: 実装
+	if c.List == nil {
+		c.List = make(map[string]int)
+	}
+
+	c.List[item.Name] += item.Price
+	c.TotalPrice += item.Price
 }
 
 func (c *Casher) Receipt() string {
-	// TODO: 実装
-	return ""
+	details := "\nラーメン道 楽酢\n\n"
+	for _, n := range c.itemNames() {
+		price := strconv.Itoa(c.List[n])
+		details += fmt.Sprintf("%-10s: %8s\n", n, price)
+	}
+
+	sep := strings.Repeat("-", 20)
+	tp := strconv.Itoa(c.TotalPrice)
+	return details + fmt.Sprintf("%s\n%20s\n", sep, tp)
 }
