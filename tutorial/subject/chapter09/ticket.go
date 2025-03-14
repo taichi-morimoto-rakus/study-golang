@@ -5,14 +5,35 @@ type Charger interface {
 	Use(charge int)
 }
 
-// Charger を満たすようにメソッドを追加する
 type Ticket struct {
 	Price int
 	Used  bool
 }
 
-// Charger を満たすようにメソッドを追加する
+func (t *Ticket) Amount() int {
+	return t.Price
+}
+
+func (t *Ticket) Use(int) {
+	t.Used = true
+}
+
 type Card struct {
 	Balance int
 	Point   int
+}
+
+func (c *Card) Amount() int {
+	return c.Balance + c.Point
+}
+
+func (c *Card) Use(charge int) {
+	if c.Point > charge {
+		c.Point -= charge
+		return
+	}
+
+	remain := charge - c.Point
+	c.Balance -= remain
+	c.Point = 0
 }
