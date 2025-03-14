@@ -11,6 +11,17 @@ const (
 )
 
 func MinimumCoins(price uint) (count500, count100, count050, count010, count005, count001 uint) {
-	// TODO: 実装
+	taxedPrice := uint(float64(price) * (1 + TaxRate))
+	count500 = taxedPrice / Coin500
+	taxedPrice %= Coin500
+	count100 = taxedPrice / Coin100
+	taxedPrice %= Coin100
+	count050 = taxedPrice / Coin050
+	taxedPrice %= Coin050
+	count010 = taxedPrice / Coin010
+	taxedPrice %= Coin010
+	count005 = taxedPrice / Coin005
+	taxedPrice %= Coin005
+	count001 = taxedPrice / Coin001
 	return
 }
