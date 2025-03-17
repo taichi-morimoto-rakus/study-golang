@@ -1,9 +1,13 @@
 package client
 
 import (
+	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 type HttpClient struct {
@@ -13,26 +17,41 @@ type HttpClient struct {
 	requestHeader map[string]string
 }
 
-// TODO:URLはnet/urlパッケージの*url.URLで構築する
-//
-// TODO:customHeadersをリクエストヘッダとして設定
-//
-// TODO:HTTPメソッドがGET,DELETEの場合
-// - リクエストボディは設定しない
-// - リクエストヘッダにContent-Typeが含まれている場合は削除
-//
-// TODO:HTTPメソッドがPOST,PUT,DELETEの場合
-// - リクエストヘッダのContent-Typeは"application/json"にする
-// - dataの値をそのままレスポンスボディに設定
-// - その際、dataが空であればエラー
 func NewHttpClient(
 	rawurl string,
 	method string,
 	data string,
 	customHeaders []string,
 ) (*HttpClient, error) {
-	// TODO: 1 週目：HTTP 通信用クライアントを構築
-	return nil, nil
+	url, err := url.Parse(rawurl)
+	if err != nil {
+		return nil, err
+	}
+
+	requestHeader := make(map[string]string)
+	for _, header := range customHeaders {
+		kv := strings.Split(header, ": ")
+		requestHeader[kv[0]] = kv[1]
+	}
+
+	var requestBody *string
+	if method == http.MethodGet || method == http.MethodDelete {
+		requestBody = nil
+		delete(requestHeader, "Content-Type")
+	} else {
+		if len(data) == 0 {
+			return nil, errors.New("requests data json")
+		}
+		requestBody = &data
+		requestHeader["Content-Type"] = "application/json"
+	}
+
+	return &HttpClient{
+		url:           url,
+		method:        method,
+		requestBody:   requestBody,
+		requestHeader: requestHeader,
+	}, nil
 }
 
 func (c *HttpClient) Execute() (string, string, error) {
@@ -45,24 +64,55 @@ func (c *HttpClient) Execute() (string, string, error) {
 	return CreateRequestText(req), CreateResponseText(res), nil
 }
 
-// TODO:URL, HTTPメソッド, リクエストヘッダ, リクエストボディが適切に設定された*http.Requestを生成
-// TODO:HTTPリクエストを実行後の*http.Request, *http.Responseを返却
-// TODO:ただ単にオブジェクトを作るだけでなく、このメソッド内でリクエストの実行も完了させる
 func (c *HttpClient) SendRequest() (*http.Request, *http.Response, error) {
-	// TODO: 2 週目：HTTP 通信を実行
-	return nil, nil, nil
+	var body io.Reader
+	if c.requestBody != nil {
+		body = strings.NewReader(*c.requestBody)
+	}
+	req, err := http.NewRequest(
+		c.method,
+		c.url.String(),
+		body,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for k, v := range c.requestHeader {
+		req.Header.Set(k, v)
+	}
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return req, res, nil
 }
 
-// TODO:リクエストURL,HTTPメソッド,リクエストヘッダを所定のフォーマットで返却
 func CreateRequestText(req *http.Request) string {
-	// TODO: 3 週目：HTTP 通信結果のテキストを構築
-	return ""
+	output := "\n===Request===\n"
+	output += "[URL] " + req.URL.String() + "\n"
+	output += "[Method] " + req.Method + "\n"
+	output += "[Headers]\n"
+	for _, k := range sortedKeys(req.Header) {
+		output += "  " + k + ": " + strings.Join(req.Header[k], "; ") + "\n"
+	}
+	return output
 }
 
-// TODO:レスポンスのステータスコード,レスポンスヘッダ,レスポンスボディを所定のフォーマットで返却
 func CreateResponseText(res *http.Response) string {
-	// TODO: 3 週目：HTTP 通信結果のテキストを構築
-	return ""
+	output := "\n===Response===\n"
+	output += "[Status] " + strconv.Itoa(res.StatusCode) + "\n"
+	output += "[Headers]\n"
+	for _, k := range sortedKeys(res.Header) {
+		output += "  " + k + ": " + strings.Join(res.Header[k], "; ") + "\n"
+	}
+	output += "[Body]\n"
+	bodyBytes, _ := io.ReadAll(res.Body)
+	output += string(bodyBytes) + "\n"
+	return output
 }
 
 // http.Request.Header と http.Response.Header を渡すと昇順にソートされた Key を返す関数
