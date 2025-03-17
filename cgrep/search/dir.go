@@ -1,6 +1,9 @@
 package search
 
 import (
+	"bufio"
+	"cgrep/errors"
+	"cgrep/result"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -60,23 +63,48 @@ func (d *dir) Scan() error {
 	return nil
 }
 
-// TODO: サブディレクトリの検索を非同期で行う
-// TODO: 非同期処理の開始を d.wg に知らせるようにする
-// TODO: 自身も非同期で実行される想定なので d.wg に処理完了を知らせる
-// TODO: 配下のファイル郡の内容一致検索用メソッド d.GrepFiles() を実行する
-// TODO: エラーが発生したら errors.Set(err error) に投げる
 func (d *dir) Search() {
-	// TODO: 1 週目：配下のディレクトリ・ファイル検索機能の実装
+	defer d.wg.Done()
+
+	for _, subDir := range d.subDirs {
+		d.wg.Add(1)
+		go subDir.Search()
+	}
+
+	if err := d.GrepFiles(); err != nil {
+		errors.Set(err)
+	}
 }
 
-// TODO: 配下のファイルの内容を読み取り、正規表現に一致するファイルを検索する
-// TODO: 配下のファイルは d.fileFullPaths にフルパスの []string として保存されている
-// TODO: d.regexp に一致させたい正規表現が保存されているのでファイル内の文字列が一致するか検証する
-// TODO: 一致した場合はファイル名、一致した行の内容、行番号を result.Set() に渡して保存する
-// TODO: ファイル名は検索ルートからの相対パスを添えて保存する
-// TODO: エラーが発生したら即時リターンする
 func (d *dir) GrepFiles() error {
-	// TODO: 1 週目：配下のディレクトリ・ファイル検索機能の実装
+	for _, fileFullPath := range d.fileFullPaths {
+		file, err := os.Open(fileFullPath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		lineNumber := 0
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			lineNumber++
+			line := scanner.Text()
+			if !d.regexp.MatchString(line) {
+				continue
+			}
+
+			relPath, err := relativePath(file)
+			if err != nil {
+				return err
+			}
+
+			result.Set(relPath, line, lineNumber)
+		}
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

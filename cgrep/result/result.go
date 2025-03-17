@@ -3,6 +3,7 @@ package result
 import (
 	"io"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -30,19 +31,23 @@ func Set(fileName, txt string, no int) {
 	Store.Data[fileName] = append(Store.Data[fileName], Line{txt, no})
 }
 
-// TODO: ファイル名のみを標準出力に出力する
-// TODO: ファイル名は昇順で出力する
-// TODO: 標準出力は引数 w io.Writer として渡される想定
 func RenderFiles(w io.Writer) {
-	// TODO: 2 週目：検索結果のレンダリング & コマンド実行時のメイン処理の実装
+	for _, file := range Store.Files() {
+		io.WriteString(w, file+"\n")
+	}
 }
 
-// TODO: ファイル名と一致した行番号、一致した行の標準出力に出力する
-// TODO: ファイル名は昇順で出力する
-// TODO: 出力フォーマットは README.md を参照
-// TODO: 標準出力は引数 w io.Writer として渡される想定
 func RenderWithContent(w io.Writer) {
-	// TODO: 2 週目：検索結果のレンダリング & コマンド実行時のメイン処理の実装
+	for index, file := range Store.Files() {
+		io.WriteString(w, file+"\n")
+		for _, line := range Store.Data[file] {
+			io.WriteString(w, strconv.Itoa(line.No)+": "+line.Text+"\n")
+		}
+
+		if index < len(Store.Data)-1 {
+			io.WriteString(w, "\n")
+		}
+	}
 }
 
 // 保存されているファイル名を昇順でソートした上で []string として返す関数
