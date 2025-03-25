@@ -1,7 +1,9 @@
 package output
 
 import (
+	"bytes"
 	"context"
+	"net/http"
 )
 
 const (
@@ -13,5 +15,30 @@ const (
 // TODO: ctx context.Context がキャンセルされた場合には速やかに関数を終了する
 // TODO: エラーが発生した際には errc chan error へエラーを送信する
 func Forward(ctx context.Context, out chan []byte, errc chan error, url string) {
-	// TODO: 2 週目：内部バッファに保存された内容を一定時間ごとに読み込む処理と、読み取った文字列を Body とした HTTP#POST リクエストを投げる処理
+	client := &http.Client{}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg, ok := <-out:
+			if !ok {
+				return
+			}
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(msg))
+			if err != nil {
+				errc <- err
+				continue
+			}
+			req.Header.Set("Content-Type", "plain/text")
+
+			res, err := client.Do(req)
+			if err != nil {
+				errc <- err
+				continue
+			}
+			res.Body.Close()
+		}
+	}
 }
